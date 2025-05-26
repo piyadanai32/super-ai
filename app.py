@@ -93,7 +93,7 @@ def handle_message(event):
 
     # ตรวจสอบว่าเป็นข้อความในกลุ่มหรือห้องสนทนาหรือไม่
     is_group = hasattr(event.source, 'type') and event.source.type in ['group', 'room']
-    bot_name = "DPA Chatbot"
+    bot_name = "DMC Chatbot"
     should_respond = False
     actual_message = text_from_user
 
