@@ -60,26 +60,62 @@ class RAGSystem:
             if not json_files:
                 logger.warning(f"No JSON files found in {json_dir}")
                 return False
-
-            # โหลดเอกสารแบบ batch
+            
             for json_file in tqdm(json_files, desc="Loading documents"):
+                
+                logger.info(f"Processing file: {json_file}")
+                
                 try:
                     file_path = os.path.join(json_dir, json_file)
                     with open(file_path, 'r', encoding='utf-8') as f:
                         data = json.load(f)
-                    
-                    for item in data:
-                        if isinstance(item, dict) and "question" in item and "answer" in item:
-                            text = f"{item['question']} {item['answer']}"
-                            processed_docs.append({
-                                'text': text,
-                                'question': item['question'],
-                                'answer': item['answer'],
-                                'source': json_file
-                            })
+
+                    # กรณีเป็นแบบที่ 1 (list ของคำถาม-คำตอบ)
+                    if isinstance(data, list) and all(isinstance(item, dict) for item in data):
+                        for item in data:
+                            if "question" in item and "answer" in item:
+                                text = f"{item['question']} {item['answer']}"
+                                processed_docs.append({
+                                    'text': text,
+                                    'question': item['question'],
+                                    'answer': item['answer'],
+                                    'source': json_file
+                                })
+
+                    # กรณีเป็นแบบที่ 2 (โครงสร้างมี part, title, data)
+                    if isinstance(data, list) and all(isinstance(item, dict) and "data" in item for item in data):
+                        for section in data:
+                            part = section.get("part")
+                            title = section.get("title", "")
+                            for entry in section.get("data", []):
+                                page = entry.get("page")
+                                topic = entry["topic"]
+                                content = entry["content"]
+
+                                # รวมข้อมูลหน้าไว้ใน text ด้วย
+                                text = f"ส่วนที่ {part} เรื่อง: {title} หน้า {page} หัวข้อ: {topic} เนื้อหา: {content}"
+                                
+                                logger.info(f"Processing part: {part}, title: {title}, topic: {topic}, page: {page}")
+                                                                
+                                processed_docs.append({
+                                    'text': text,
+                                    "metadata": {
+                                        'part': part,
+                                        'title': title,
+                                        'topic': topic,
+                                        'content': content,
+                                        'page': page,
+                                        'source': json_file
+                                    }
+                                })
+
+                    else:
+                        logger.warning(f"Unknown JSON structure in file: {json_file}")
+
                 except Exception as e:
                     logger.error(f"Error loading file {json_file}: {str(e)}")
                     continue
+            
             
             self.documents = processed_docs
             self._build_index()
@@ -155,20 +191,51 @@ class RAGSystem:
             for idx, score in zip(indices[0], scores[0]):
                 if idx >= 0 and idx < len(self.documents):
                     doc = self.documents[idx]
-                    results.append({
-                        'question': doc['question'],
-                        'answer': doc['answer'],
+
+                    # รองรับโครงสร้างทั้งสองแบบ
+                    result = {
                         'score': float(score),
-                        'text': doc['text']
-                    })
+                        'text': doc.get('text', '')
+                    }
+
+                    # ถ้าเป็นแบบ question-answer
+                    if 'question' in doc and 'answer' in doc:
+                        
+                        logger.info(f"Found question-answer in document: {doc['question']}")
+                        
+                        result['question'] = doc['question']
+                        result['answer'] = doc['answer']
+
+                    # ถ้าเป็นแบบ topic-content-page
+                    if 'metadata' in doc:
+                        
+                        logger.info(f"Found metadata in document: {doc['metadata']}")
+                        
+                        meta = doc['metadata']
+                        result.update({
+                            'topic': meta.get('topic'),
+                            'content': meta.get('content'),
+                            'page': meta.get('page'),
+                            'title': meta.get('title')
+                        })
+
+                    results.append(result)
 
             # Sort by score
             results.sort(key=lambda x: x['score'], reverse=True)
-            logger.info(f"Query: {query}")
-            logger.info(f"Top result: {results[0]['question']} (score: {results[0]['score']:.4f})")
-            
+
+            # Logging แสดงคำถาม/หัวข้อที่เจออันดับแรก
+            top = results[0]
+            if 'question' in top:
+                logger.info(f"Query: {query}")
+                logger.info(f"Top result: {top['question']} (score: {top['score']:.4f})")
+            elif 'topic' in top:
+                logger.info(f"Query: {query}")
+                logger.info(f"Top result: {top['topic']} (page: {top.get('page')}) (score: {top['score']:.4f})")
+
             return results
 
         except Exception as e:
             logger.error(f"Error during search: {str(e)}")
             return []
+
