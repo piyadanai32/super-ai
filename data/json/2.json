@@ -220,10 +220,6 @@
         "answer": "Mozilla Firefox เวอร์ชัน 52 ขึ้นไป หรือ Google Chrome เวอร์ชัน 60 ขึ้นไป"
     },
     {
-        "question": "สามารถดาวน์โหลดโปรแกรมเครื่องอ่านบัตร Smart Card ได้จากที่ใด?",
-        "answer": "ดาวน์โหลดได้ที่ http://www.bopp-obec.info/home/wp-content/uploads/2017/08/smartcard_reader.zip"
-    },
-    {
         "question": "โปรแกรมแอนตี้ไวรัสใดที่อาจรบกวนการใช้งานเครื่องอ่านบัตร Smart Card?",
         "answer": "Baidu Antivirus และโปรแกรมย่อยของ Baidu อาจลบโปรแกรมเครื่องอ่านบัตร ทำให้ใช้งานไม่ได้"
     },

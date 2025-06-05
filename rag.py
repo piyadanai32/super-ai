@@ -62,28 +62,56 @@ class RAGSystem:
                 return False
             
             for json_file in tqdm(json_files, desc="Loading documents"):
-                
                 logger.info(f"Processing file: {json_file}")
-                
                 try:
                     file_path = os.path.join(json_dir, json_file)
                     with open(file_path, 'r', encoding='utf-8') as f:
                         data = json.load(f)
 
-                    # กรณีเป็นแบบที่ 1 (list ของคำถาม-คำตอบ)
+                    # แบบที่ 1: Q&A
                     if isinstance(data, list) and all(isinstance(item, dict) for item in data):
-                        for item in data:
-                            if "question" in item and "answer" in item:
-                                text = f"{item['question']} {item['answer']}"
-                                processed_docs.append({
-                                    'text': text,
-                                    'question': item['question'],
-                                    'answer': item['answer'],
-                                    'source': json_file
-                                })
-
-                    # กรณีเป็นแบบที่ 2 (โครงสร้างมี part, title, data)
-                    if isinstance(data, list) and all(isinstance(item, dict) and "data" in item for item in data):
+                        # ตรวจสอบ doc.json (มี sections)
+                        if (
+                            "part" in data[0] and
+                            "sections" in data[0]
+                        ):
+                            # รองรับ doc.json
+                            for part_item in data:
+                                part = part_item.get("part")
+                                title = part_item.get("title", "")
+                                for section in part_item.get("sections", []):
+                                    topic = section.get("topic", "")
+                                    content = section.get("content", "")
+                                    page = section.get("page", "")
+                                    summary = section.get("summary", "")
+                                    keywords = section.get("keywords", [])
+                                    text = f"ส่วนที่ {part} เรื่อง: {title} หน้า {page} หัวข้อ: {topic} สรุป: {summary} คำสำคัญ: {', '.join(keywords)} เนื้อหา: {content}"
+                                    processed_docs.append({
+                                        'text': text,
+                                        "metadata": {
+                                            'part': part,
+                                            'title': title,
+                                            'topic': topic,
+                                            'content': content,
+                                            'page': page,
+                                            'summary': summary,
+                                            'keywords': keywords,
+                                            'source': json_file
+                                        }
+                                    })
+                        else:
+                            # Q&A ปกติ
+                            for item in data:
+                                if "question" in item and "answer" in item:
+                                    text = f"{item['question']} {item['answer']}"
+                                    processed_docs.append({
+                                        'text': text,
+                                        'question': item['question'],
+                                        'answer': item['answer'],
+                                        'source': json_file
+                                    })
+                    # แบบที่ 2: part/title/data
+                    elif isinstance(data, list) and all(isinstance(item, dict) and "data" in item for item in data):
                         for section in data:
                             part = section.get("part")
                             title = section.get("title", "")
@@ -91,12 +119,8 @@ class RAGSystem:
                                 page = entry.get("page")
                                 topic = entry["topic"]
                                 content = entry["content"]
-
-                                # รวมข้อมูลหน้าไว้ใน text ด้วย
                                 text = f"ส่วนที่ {part} เรื่อง: {title} หน้า {page} หัวข้อ: {topic} เนื้อหา: {content}"
-                                
                                 logger.info(f"Processing part: {part}, title: {title}, topic: {topic}, page: {page}")
-                                                                
                                 processed_docs.append({
                                     'text': text,
                                     "metadata": {
@@ -108,10 +132,8 @@ class RAGSystem:
                                         'source': json_file
                                     }
                                 })
-
                     else:
                         logger.warning(f"Unknown JSON structure in file: {json_file}")
-
                 except Exception as e:
                     logger.error(f"Error loading file {json_file}: {str(e)}")
                     continue
