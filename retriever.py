@@ -28,73 +28,75 @@ def search_from_documents(question):
             if not initialize_rag():
                 return "ขออภัย ระบบยังไม่พร้อมใช้งาน", False, None
 
-        results = []
-        found_matches = []
+        qa_candidates = []
+        content_candidates = []
+
         # ค้นหาข้อมูลจากเอกสาร
         base_results = rag_system.search(question, k=5)
 
-        # --- แก้ไขตรงนี้: ถ้าเจอ Q&A ให้ตอบ answer ทันที ---
+        # แยก Q&A และ content พร้อมเก็บ score
         if base_results:
             for r in base_results:
                 if isinstance(r, dict):
                     if 'question' in r and 'answer' in r:
-                        found_matches.append(f"Found question-answer in document: {r['question']}")
-                        # ตอบ Q&A ทันที ไม่ต้องส่ง LLM
-                        return r['answer'], True, {
-                            'question': question,
-                            'contexts': [r['answer']],
+                        qa_candidates.append({
+                            'type': 'qa',
+                            'question': r['question'],
+                            'answer': r['answer'],
                             'score': r['score']
-                        }
+                        })
                     elif 'content' in r:
-                        results.append({
+                        content_candidates.append({
                             'type': 'content',
                             'text': r.get('content', ''),
                             'score': r['score']
                         })
 
-        if not results:
+        # ถ้าไม่มีอะไรเลย
+        if not qa_candidates and not content_candidates:
             return "ขออภัย ไม่พบข้อมูลที่เกี่ยวข้อง", False, None
 
-        # Log found matches
-        for match in found_matches:
-            logger.info(match)
+        # หา Q&A และ content ที่ score สูงสุด
+        best_qa = max(qa_candidates, key=lambda x: x['score']) if qa_candidates else None
+        best_content = max(content_candidates, key=lambda x: x['score']) if content_candidates else None
 
-        # Sort by score
-        results = sorted(results, key=lambda x: x['score'], reverse=True)
-        best_match = results[0]
-
-        logger.info(f"Query: {question}")
-        logger.info(f"Top result: {found_matches[0] if found_matches else best_match['text'][:30]} (score: {best_match['score']:.4f})")
-        logger.info(f"คำถาม: {question}")
-
-        # ถ้า match ดี (score >= 0.8) ไม่ว่าจะ Q&A หรือ content ให้ส่ง context/answer ไป LLM
-        if best_match['score'] >= 0.8:
-            return generate_response(question, best_match['text']), True, {
+        # เปรียบเทียบ score และเลือกแบบที่สูงสุด
+        if best_qa and (not best_content or best_qa['score'] >= best_content['score']):
+            logger.info(f"Found question-answer in document: {best_qa['question']}")
+            return best_qa['answer'], True, {
                 'question': question,
-                'contexts': [best_match['text']],
-                'score': best_match['score']
+                'contexts': [best_qa['answer']],
+                'score': best_qa['score']
             }
-
-        if best_match['score'] >= 0.3:
-            contexts = []
-            for r in results[:3]:
-                if r['score'] >= 0.2:
-                    contexts.append(r['text'])
-
-            combined_context = "\n\n".join(contexts)
-            try:
-                return generate_response(question, combined_context), True, {
+        elif best_content:
+            logger.info(f"Query: {question}")
+            logger.info(f"Top content result: {best_content['text'][:30]} (score: {best_content['score']:.4f})")
+            # ถ้า match ดี (score >= 0.8)
+            if best_content['score'] >= 0.8:
+                return generate_response(question, best_content['text']), True, {
                     'question': question,
-                    'contexts': contexts,
-                    'score': best_match['score']
+                    'contexts': [best_content['text']],
+                    'score': best_content['score']
                 }
-            except Exception as e:
-                logger.error(f"Error generating response: {str(e)}")
-                return best_match['text'], True, {
-                    'question': question,
-                    'contexts': contexts,
-                    'score': best_match['score']
-                }
+            if best_content['score'] >= 0.3:
+                # รวม context ที่ score >= 0.2
+                sorted_contents = sorted(content_candidates, key=lambda x: x['score'], reverse=True)
+                contexts = [r['text'] for r in sorted_contents[:3] if r['score'] >= 0.2]
+                combined_context = "\n\n".join(contexts)
+                try:
+                    return generate_response(question, combined_context), True, {
+                        'question': question,
+                        'contexts': contexts,
+                        'score': best_content['score']
+                    }
+                except Exception as e:
+                    logger.error(f"Error generating response: {str(e)}")
+                    return best_content['text'], True, {
+                        'question': question,
+                        'contexts': contexts,
+                        'score': best_content['score']
+                    }
+            return "ขออภัย ไม่พบข้อมูลที่ตรงกับคำถามของคุณ", False, None
 
         return "ขออภัย ไม่พบข้อมูลที่ตรงกับคำถามของคุณ", False, None
 
