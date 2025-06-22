@@ -26,20 +26,9 @@ load_dotenv()
 
 # ตรวจสอบและกำหนดค่าตัวแปรสภาพแวดล้อมที่จำเป็น
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-if not GOOGLE_APPLICATION_CREDENTIALS:
-    raise ValueError("ไม่พบตัวแปรสภาพแวดล้อม GOOGLE_APPLICATION_CREDENTIALS")
-
 DIALOGFLOW_PROJECT_ID = os.getenv("DIALOGFLOW_PROJECT_ID")
-if not DIALOGFLOW_PROJECT_ID:
-    raise ValueError("ไม่พบตัวแปรสภาพแวดล้อม DIALOGFLOW_PROJECT_ID")
-
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-if not LINE_CHANNEL_ACCESS_TOKEN:
-    raise ValueError("ไม่พบตัวแปรสภาพแวดล้อม LINE_CHANNEL_ACCESS_TOKEN")
-
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
-if not LINE_CHANNEL_SECRET:
-    raise ValueError("ไม่พบตัวแปรสภาพแวดล้อม LINE_CHANNEL_SECRET")
 
 # กำหนดค่า Config
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS

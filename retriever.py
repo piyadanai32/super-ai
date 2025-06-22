@@ -30,20 +30,21 @@ def search_from_documents(question):
 
         results = []
         found_matches = []
-        
         # ค้นหาข้อมูลจากเอกสาร
-        base_results = rag_system.search(question, k=5) 
-        
+        base_results = rag_system.search(question, k=5)
+
+        # --- แก้ไขตรงนี้: ถ้าเจอ Q&A ให้ตอบ answer ทันที ---
         if base_results:
             for r in base_results:
                 if isinstance(r, dict):
                     if 'question' in r and 'answer' in r:
                         found_matches.append(f"Found question-answer in document: {r['question']}")
-                        results.append({
-                            'type': 'qa',
-                            'text': r['answer'], 
+                        # ตอบ Q&A ทันที ไม่ต้องส่ง LLM
+                        return r['answer'], True, {
+                            'question': question,
+                            'contexts': [r['answer']],
                             'score': r['score']
-                        })
+                        }
                     elif 'content' in r:
                         results.append({
                             'type': 'content',
@@ -63,8 +64,16 @@ def search_from_documents(question):
         best_match = results[0]
 
         logger.info(f"Query: {question}")
-        logger.info(f"Top result: {found_matches[0]} (score: {best_match['score']:.4f})")
+        logger.info(f"Top result: {found_matches[0] if found_matches else best_match['text'][:30]} (score: {best_match['score']:.4f})")
         logger.info(f"คำถาม: {question}")
+
+        # ถ้า match ดี (score >= 0.8) ไม่ว่าจะ Q&A หรือ content ให้ส่ง context/answer ไป LLM
+        if best_match['score'] >= 0.8:
+            return generate_response(question, best_match['text']), True, {
+                'question': question,
+                'contexts': [best_match['text']],
+                'score': best_match['score']
+            }
 
         if best_match['score'] >= 0.3:
             contexts = []
