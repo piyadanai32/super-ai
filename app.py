@@ -18,7 +18,8 @@ from retriever import search_from_documents
 from dialogflow import detect_intent_texts
 from message import (
     process_payload, create_flex_message,
-    send_multiple_messages, send_text_message
+    send_multiple_messages, send_text_message,
+    prepend_bot_name_for_group
 )
 
 # โหลด environment variables จากไฟล์ .env
@@ -101,6 +102,12 @@ def handle_message(event):
             # ตรวจสอบและรวบรวมทุกข้อความจาก Dialogflow
             if 'fulfillmentMessages' in response_dict['queryResult']:
                 for message in response_dict['queryResult']['fulfillmentMessages']:
+                    # Process payload with group context
+                    if 'payload' in message:
+                        has_payload = True
+                        process_payload(message['payload'], messages_to_reply, is_group)
+                        continue
+
                     # ตรวจสอบข้อความปกติ
                     if 'text' in message and 'text' in message['text'] and message['text']['text']:
                         for text in message['text']['text']:
@@ -113,11 +120,12 @@ def handle_message(event):
                         quick_reply_items = []
                         if 'quickReplies' in message['quickReplies'] and isinstance(message['quickReplies']['quickReplies'], list):
                             for qr in message['quickReplies']['quickReplies']:
+                                text = prepend_bot_name_for_group(qr, is_group) if is_group else qr
                                 quick_reply_items.append(
                                     QuickReplyItem(
                                         action=MessageAction(
-                                            label=qr[:20],  # LINE จำกัดความยาวของป้ายชื่อไม่เกิน 20 ตัวอักษร
-                                            text=qr
+                                            label=qr[:20],
+                                            text=text
                                         )
                                     )
                                 )
