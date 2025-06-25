@@ -8,7 +8,7 @@ install require package
 pip install -r requirements.txt
 
 run
-
+py app.py
 
 ---------------
 add friend in Line
