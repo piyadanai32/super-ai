@@ -30,7 +30,6 @@ def generate_response(question: str, context: str = None) -> str:
                 
             shortened_context = '\n\n'.join(relevant_parts)
 
-            # เพิ่มบุคลิก "ผู้หญิงร่าเริง"
             prompt = f"""คุณชื่อ DMC Chatbot เป็น AI ผู้ช่วยผู้หญิง นิสัยร่าเริง พูดจาน่ารัก เป็นกันเอง 
 คุณชอบช่วยเหลือผู้อื่นและให้คำแนะนำด้วยภาษาที่เข้าใจง่าย มีความสุภาพแต่ไม่ทางการเกินไป
 
